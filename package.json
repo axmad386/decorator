@@ -1,0 +1,17 @@
+{
+  "name": "decorator",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc --build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "reflect-metadata": "^0.1.13",
+    "typescript": "^4.9.5"
+  }
+}
