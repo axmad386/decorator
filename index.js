@@ -22,8 +22,14 @@ function Inject(type) {
         Reflect.defineMetadata(MY_METADATA_KEY, metadata, target, key);
     };
 }
-function Injectable() {
-    return (target) => { };
+function Req() {
+    return Inject(Symbol("request"));
+}
+function Injectable(classMetada = {}) {
+    return (target) => {
+        const constructorMetadata = Reflect.getMetadata("design:paramtypes", target) || [];
+        Reflect.defineMetadata(MY_METADATA_KEY, { constructorMetadata, ...classMetada }, target);
+    };
 }
 class User {
     constructor(id) {
@@ -39,6 +45,9 @@ class UserRepository {
         console.log("save", { user });
     }
 }
+function Controller() {
+    return Injectable({ type: Symbol("controller") });
+}
 let UserController = class UserController {
     repo;
     constructor(repo) {
@@ -51,7 +60,9 @@ let UserController = class UserController {
     updateUser(user, id, name) {
         console.log({ name, user, id });
     }
-    test(id) { }
+    test(req, user) {
+        console.log({ req, user });
+    }
 };
 __decorate([
     __param(0, Inject()),
@@ -59,20 +70,29 @@ __decorate([
     __metadata("design:paramtypes", [User, Number, String]),
     __metadata("design:returntype", void 0)
 ], UserController.prototype, "updateUser", null);
+__decorate([
+    __param(0, Req()),
+    __param(1, Inject()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, User]),
+    __metadata("design:returntype", void 0)
+], UserController.prototype, "test", null);
 UserController = __decorate([
-    Injectable(),
+    Controller(),
     __metadata("design:paramtypes", [UserRepository])
 ], UserController);
 const make = (target) => {
-    let tokens = Reflect.getMetadata("design:paramtypes", target) || [];
-    tokens = tokens.map((token) => make(token));
-    return new target(...tokens);
+    let { constructorMetadata, ...classMetadata } = Reflect.getMetadata(MY_METADATA_KEY, target) || {};
+    console.log({ classMetadata, target });
+    constructorMetadata =
+        constructorMetadata?.map((token) => make(token)) || [];
+    return new target(...constructorMetadata);
 };
 const call = (target, method, params) => {
     let injects = Reflect.getMetadata(MY_METADATA_KEY, target, method);
     console.log({ injects });
-    injects = injects.map((i) => make(i));
+    injects = injects.map((i) => i.toString().includes("class") ? make(i) : i);
     return target[method](...injects, ...params);
 };
 const user = make(UserController);
-console.log(call(user, "updateUser", [1, "akhmad"]));
+console.log(call(user, "test", [1, "akhmad"]));

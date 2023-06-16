@@ -13,9 +13,20 @@ function Inject(type?: any): ParameterDecorator {
     Reflect.defineMetadata(MY_METADATA_KEY, metadata, target, key);
   };
 }
+function Req() {
+  return Inject(Symbol("request"));
+}
 
-function Injectable(): ClassDecorator {
-  return (target: any) => {};
+function Injectable(classMetada: any = {}): ClassDecorator {
+  return (target: any) => {
+    const constructorMetadata =
+      Reflect.getMetadata("design:paramtypes", target) || [];
+    Reflect.defineMetadata(
+      MY_METADATA_KEY,
+      { constructorMetadata, ...classMetada },
+      target
+    );
+  };
 }
 
 class User {
@@ -39,7 +50,10 @@ class UserRepository implements Repository {
   }
 }
 
-@Injectable()
+function Controller() {
+  return Injectable({ type: Symbol("controller") });
+}
+@Controller()
 class UserController {
   constructor(protected repo: UserRepository) {
     console.log({ repo });
@@ -51,21 +65,27 @@ class UserController {
     console.log({ name, user, id });
   }
 
-  public test(id: number) {}
+  public test(@Req() req: any, @Inject() user: User) {
+    console.log({ req, user });
+  }
 }
 
 const make = <T>(target: Class<T>): T => {
-  let tokens = Reflect.getMetadata("design:paramtypes", target) || [];
-  tokens = tokens.map((token: Class<any>) => make(token));
-  return new target(...tokens);
+  let { constructorMetadata, ...classMetadata } =
+    Reflect.getMetadata(MY_METADATA_KEY, target) || {};
+  console.log({ classMetadata, target });
+  constructorMetadata =
+    constructorMetadata?.map((token: Class<any>) => make(token)) || [];
+  return new target(...constructorMetadata);
 };
 
 const call = (target: any, method: string, params: any) => {
   let injects = Reflect.getMetadata(MY_METADATA_KEY, target, method);
-  console.log({ injects });
-  injects = injects.map((i: any) => make(i));
+  injects = injects.map((i: any) =>
+    i.toString().includes("class") ? make(i) : i
+  );
   return target[method](...injects, ...params);
 };
 
 const user = make(UserController);
-console.log(call(user, "updateUser", [1, "akhmad"]));
+console.log(call(user, "test", [1, "akhmad"]));
